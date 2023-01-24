@@ -3,6 +3,7 @@
 from typing import List
 from needle.autograd import Tensor
 from needle import ops
+from needle.functional import softmax
 import needle.init as init
 import numpy as np
 import math
@@ -796,3 +797,47 @@ class GRU(Module):
                 )
             out += [h_split[-1]]
         return ops.stack(out, 0), ops.stack(h_split, 0)
+    
+    
+class MultiHeadedAttention(Module):
+    def __init__(self, h, d_model, dropout=0.1, device=None, dtype="float32"):
+        super(MultiHeadedAttention, self).__init__()
+        
+        assert d_model % h == 0
+        
+        self.d_head = d_model // h
+        self.h = h
+        
+        self.attn = None
+        self.dropout = Dropout(p=dropout)
+        
+        self.dtype = dtype
+        self.device = device
+        # weight - W_KQV matrix of shape (d_model, d_model * 3)
+        # self.weight = Parameter(
+        #     init.kaiming_uniform(d_model, d_model * 3), device=device, dtype=dtype
+        # )
+        # self.w_out = Parameter(
+        #     init.kaiming_uniform(d_model, d_model), device=device, dtype=dtype
+        # )
+    
+    
+    def forward(self, x, mask=None):
+        batch_size, seq_len, d_model = x.shape
+        print(f"x @ self.weight {(x @ self.weight).shape}")
+        key, query, value = ops.split(x @ self.weight, 3, axis=2)
+        print(f"key {(key).shape}")
+        
+
+        key = self.__split_heads(key, batch_size, seq_len, d_model)
+        query = self.__split_heads(query, batch_size, seq_len, d_model)
+        value = self.__split_heads(value, batch_size, seq_len, d_model)
+        
+        attn = softmax(key @ query.transpose() / np.sqrt(d_model // self.h) + mask)
+        output = (attn @ value).transpose((1,2)).reshape(batch_size, seq_len, d_model)
+        output = output @ self.w_out
+        return output, attn
+    
+    def __split_heads(self, key, batch_size, seq_len, d_model):
+        new_shape = (batch_size, seq_len, self.h, d_model // self.h)
+        return key.reshape(new_shape).transpose((1, 2))

@@ -3,6 +3,7 @@ import os
 
 
 BACKEND = os.environ.get("NEEDLE_BACKEND", "nd")
+BACKEND = "np"
 
 
 if BACKEND == "nd":
