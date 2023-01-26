@@ -2,9 +2,14 @@ cmake_minimum_required(VERSION 3.2)
 project(needle C CXX)
 
 # find correct version of Python
+# execute_process(COMMAND python3-config --prefix
+#   OUTPUT_VARIABLE Python_ROOT_DIR)
+# find_package(Python COMPONENTS Development Interpreter REQUIRED)
+# include_directories(${Python_INCLUDE_DIRS})
+set(Python3_FIND_VIRTUALENV "ONLY")
 execute_process(COMMAND python3-config --prefix
   OUTPUT_VARIABLE Python_ROOT_DIR)
-find_package(Python COMPONENTS Development Interpreter REQUIRED)
+find_package(Python3 COMPONENTS Development Interpreter REQUIRED)
 include_directories(${Python_INCLUDE_DIRS})
 
 # find pybind
@@ -16,10 +21,12 @@ find_package(pybind11 PATHS ${__pybind_path})
 
 
 if(NOT MSVC)
-  set(CMAKE_CXX_FLAGS "-std=c++11 -O2 -march=native ${CMAKE_CXX_FLAGS}")
+  # set(CMAKE_CXX_FLAGS "-std=c++11 -O2 -mcpu=apple-m1 ${CMAKE_CXX_FLAGS}")
+  set(CMAKE_CXX_FLAGS "-std=c++17 -O2 -mcpu=apple-m1 ${CMAKE_CXX_FLAGS}")
   set(CMAKE_CUDA_STANDARD 14)
 else()
-  set(CMAKE_CXX_FLAGS "/std:c++11 -O2 -march=native ${CMAKE_CXX_FLAGS}")
+  # set(CMAKE_CXX_FLAGS "/std:c++11 -O2 -mcpu=apple-m1 ${CMAKE_CXX_FLAGS}")
+  set(CMAKE_CXX_FLAGS "/std=c++17 -O2 -mcpu=apple-m1 ${CMAKE_CXX_FLAGS}")
   set(CMAKE_CUDA_STANDARD 14)
 endif()
 

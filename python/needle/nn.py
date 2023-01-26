@@ -813,26 +813,38 @@ class MultiHeadedAttention(Module):
         
         self.dtype = dtype
         self.device = device
+        # TODO: implement split() function like numpy so that devide weight matrix to K V Q
         # weight - W_KQV matrix of shape (d_model, d_model * 3)
         # self.weight = Parameter(
         #     init.kaiming_uniform(d_model, d_model * 3), device=device, dtype=dtype
         # )
-        # self.w_out = Parameter(
-        #     init.kaiming_uniform(d_model, d_model), device=device, dtype=dtype
-        # )
+        self.w_k = Parameter(
+            init.kaiming_uniform(d_model, d_model), device=device, dtype=dtype
+        )
+        self.w_q = Parameter(
+            init.kaiming_uniform(d_model, d_model), device=device, dtype=dtype
+        )
+        self.w_v = Parameter(
+            init.kaiming_uniform(d_model, d_model), device=device, dtype=dtype
+        )
+        self.w_out = Parameter(
+            init.kaiming_uniform(d_model, d_model), device=device, dtype=dtype
+        )
     
     
     def forward(self, x, mask=None):
         batch_size, seq_len, d_model = x.shape
-        print(f"x @ self.weight {(x @ self.weight).shape}")
-        key, query, value = ops.split(x @ self.weight, 3, axis=2)
-        print(f"key {(key).shape}")
-        
+        # TODO: implement split() function like numpy so that devide weight matrix to K V Q
+        # key, query, value = ops.split(x @ self.weight, 3, axis=-1)
+        key = bmm(x, self.w_k)
+        query = bmm(x, self.w_q)
+        value = bmm(x, self.w_v)
 
         key = self.__split_heads(key, batch_size, seq_len, d_model)
         query = self.__split_heads(query, batch_size, seq_len, d_model)
         value = self.__split_heads(value, batch_size, seq_len, d_model)
         
+        print(f"key: {key.shape}, query.T: {query.transpose().shape}")
         attn = softmax(key @ query.transpose() / np.sqrt(d_model // self.h) + mask)
         output = (attn @ value).transpose((1,2)).reshape(batch_size, seq_len, d_model)
         output = output @ self.w_out

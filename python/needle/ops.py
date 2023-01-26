@@ -29,6 +29,7 @@ class TupleGetItem(TensorOp):
         self.index = index
 
     def __call__(self, a: TensorTuple, fold_const=True) -> Value:
+        # print(f"type a: {type(a)}")
         assert isinstance(a, TensorTuple)
         # constant folding
         if fold_const and isinstance(a.op, MakeTensorTuple):

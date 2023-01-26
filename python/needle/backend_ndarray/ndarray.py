@@ -3,7 +3,7 @@ import math
 from functools import reduce
 import numpy as np
 from . import ndarray_backend_numpy
-# from . import ndarray_backend_cpu
+from . import ndarray_backend_cpu
 
 
 # math.prod not in Python 3.7
@@ -556,6 +556,9 @@ class NDArray:
         the GPU version will just work natively by tiling any input size).
         """
 
+        if self.ndim > 2:
+            return self.batch_matmul(other)
+        
         assert self.ndim == 2 and other.ndim == 2
         assert self.shape[1] == other.shape[0]
 
@@ -590,6 +593,36 @@ class NDArray:
                 self.compact()._handle, other.compact()._handle, out._handle, m, n, p
             )
             return out
+        
+    def batch_matmul(self, batch2):
+        batch1_shape = self.shape
+        batch2_shape = batch2.shape
+        
+        seq_len, d_model = batch1_shape[-2:]
+        hiden_dim = batch2_shape[-1]
+        assert d_model == batch2_shape[-2]
+        
+        flatten_bs = reduce(lambda a, b: a * b, batch1_shape[:-2])
+        batches1 = split(self.compact().reshape((flatten_bs, seq_len, d_model)), axis=0)
+            
+        batch = []
+        if self.ndim == batch2.ndim:
+            assert batch1_shape[:-2] == batch1_shape[:-2]
+            batches2 = split(batch2.compact().reshape((flatten_bs, d_model, hiden_dim)), axis=0)
+            
+            for i in range(flatten_bs):
+                batch.append(batches1[i] @ batches2[i])
+            
+        else:
+            for i in range(flatten_bs):
+                batch.append(batches1[i] @ batch2)
+        
+        out_shape = list(batch1_shape[:-2])
+        out_shape += [seq_len, hiden_dim]
+        
+        b_mm = stack(tuple(batch), axis=0).reshape(tuple(out_shape))
+        return b_mm
+    
 
     ### Reductions, i.e., sum/max over all element or over given axis
     def reduce_view_out(self, axis, keepdims=False):
@@ -638,7 +671,7 @@ class NDArray:
         strides = list(self.strides)
         for axis in axes:
             strides[axis] = - self.strides[axis]
-            offset += (self.shape[axis] - 1) * self.strides[axis]
+            offset += (self.shape[axis]-1) * self.strides[axis]
         return NDArray.make(
             shape=self.shape, strides=tuple(strides), device=self.device, handle=self._handle, offset=offset
         ).compact()
